@@ -1,0 +1,37 @@
+# Unity text-based assets — force LF and mark as text so diffs are readable
+*.cs                 text diff=csharp eol=lf
+*.shader             text eol=lf
+*.cginc              text eol=lf
+*.hlsl               text eol=lf
+*.uxml               text eol=lf
+*.uss                text eol=lf
+*.json               text eol=lf
+*.md                 text eol=lf
+*.gitignore          text eol=lf
+*.gitattributes      text eol=lf
+
+# Unity YAML assets. These MUST use Unity's smart merge (UnityYAMLMerge)
+# or they will corrupt on a bad merge. Treated as text so the tool can run.
+*.unity              text eol=lf merge=unityyamlmerge
+*.prefab             text eol=lf merge=unityyamlmerge
+*.asset              text eol=lf merge=unityyamlmerge
+*.mat                text eol=lf merge=unityyamlmerge
+*.anim               text eol=lf merge=unityyamlmerge
+*.controller         text eol=lf merge=unityyamlmerge
+*.meta               text eol=lf merge=unityyamlmerge
+*.inputactions       text eol=lf
+
+# Binary assets — never try to diff or merge these
+*.png                binary
+*.jpg                binary
+*.jpeg                binary
+*.psd                binary
+*.tga                binary
+*.ttf                binary
+*.otf                binary
+*.wav                binary
+*.mp3                binary
+*.ogg                binary
+*.fbx                binary
+*.blend              binary
+*.unitypackage       binary
