@@ -55,7 +55,8 @@ scratch. That folder is gitignored and regenerable; never commit it.
 Menus/
 ├── Assets/
 │   ├── _MathDungeon/          ← EVERYTHING WE AUTHOR. This is the deliverable.
-│   │   ├── Scenes/            ← MainMenu.unity
+│   │   ├── Scenes/            ← MainMenu.unity, PauseSandbox.unity
+│   │   ├── Sandbox/           ← test harness for the pause menu; deletable
 │   │   ├── Prefabs/           ← PauseMenu.prefab (drop into any gameplay scene)
 │   │   ├── Scripts/Runtime/   ← menu controllers, scene guard, glow, button SFX
 │   │   ├── Art/UI/            ← 999 sprites, 5 Kenney packs
@@ -77,7 +78,7 @@ Menus/
 │   └── InputSystem_Actions…   ┘
 │
 ├── Delivery/
-│   └── MathDungeon.unitypackage   ← the built handoff package (2.8 MB)
+│   └── MathDungeon.unitypackage   ← the built handoff package (4.7 MB)
 │
 ├── Packages/manifest.json     ← this project's packages. NOT Techwiz's. Do not copy.
 └── ProjectSettings/           ← this project's settings. Do not copy.
@@ -109,7 +110,7 @@ git checkout -b feature/math-dungeon-menus
 3. Grab `Delivery/MathDungeon.unitypackage` from this repo (clone it, or download
    the file from GitHub).
 4. In Techwiz: **Assets → Import Package → Custom Package…**, pick that file.
-5. The import dialog lists 1071 assets, all ticked. Leave them all ticked, hit
+5. The import dialog lists 1074 assets, all ticked. Leave them all ticked, hit
    **Import**. It lands at `Assets/_MathDungeon/` — the same path it has here.
 6. Wait for the import to finish (the progress bar runs for a minute or two —
    it's compiling ~1000 sprites).
@@ -188,6 +189,20 @@ Quit hides itself automatically on WebGL, where `Application.Quit` does nothing.
 
 **Resume / Restart / Settings / Main Menu**, over a dimmed screen. To use it,
 drag the prefab into a gameplay scene. That's the whole setup — no wiring.
+
+> **Pressing Escape in MainMenu does nothing, and that is correct.** The pause
+> menu lives in gameplay scenes, not in the main menu — there is nothing to
+> pause there. To try it, open **`Scenes/PauseSandbox.unity`** and press Play.
+
+### Pause Sandbox — `Scenes/PauseSandbox.unity`
+
+A throwaway scene that exists purely to make the pause menu testable in *this*
+project, which has no gameplay of its own. A cube spins on scaled time, so
+pausing visibly stops it while the menu's own glow keeps breathing on unscaled
+time — which is the behaviour you want to confirm.
+
+Delete this scene and the `Sandbox/` folder after the Techwiz integration if you
+don't want them in the project. Nothing else depends on them.
 
 - Toggles on **Escape**, under either input backend. Techwiz may be on the new
   Input System, the legacy manager, or both, and calling the wrong API throws at
@@ -337,6 +352,12 @@ because each project imports its own copy and shipping ours would collide.
 Harmless. It's Unity's AI Assistant package failing to reach its service. It has
 nothing to do with this project's assets and can be ignored.
 
+**Escape does not open the pause menu.**
+Three causes, in order of likelihood. You're in `MainMenu` — the pause menu is
+not in that scene by design; use `PauseSandbox` or a gameplay scene. Or the
+prefab isn't in the scene at all — drag it in. Or the scene has no EventSystem,
+in which case the Console says so and the menu would appear but be unclickable.
+
 **Merge conflict in a `.unity` or `.prefab` file.**
 Don't hand-edit it. Set up UnityYAMLMerge (see Git notes) and re-run the merge.
 
@@ -352,7 +373,7 @@ Don't hand-edit it. Set up UnityYAMLMerge (see Git notes) and re-run the merge.
 | ✅ | Backdrop concept chosen: **C · Etched Slate**, carved |
 | ✅ | Main menu scene — title, 4 buttons, settings panel, rune field |
 | ✅ | Pause menu prefab — Escape toggle, 4 buttons, settings panel |
-| ✅ | `Delivery/MathDungeon.unitypackage` rebuilt (1071 assets, 4.7 MB) |
+| ✅ | `Delivery/MathDungeon.unitypackage` rebuilt (1074 assets, 4.7 MB) |
 | ⬜ | Sliders wired to an AudioMixer — belongs in Techwiz |
 | ⬜ | Level select screen |
 

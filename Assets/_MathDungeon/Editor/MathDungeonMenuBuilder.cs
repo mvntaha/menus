@@ -26,6 +26,7 @@ namespace MathDungeon.EditorTools
         const string PrefabDir  = "Assets/_MathDungeon/Prefabs";
         const string MainMenuScenePath = SceneDir + "/MainMenu.unity";
         const string PausePrefabPath   = PrefabDir + "/PauseMenu.prefab";
+        const string SandboxScenePath  = SceneDir + "/PauseSandbox.unity";
 
         // Kenney sprites the menus use, with the 9-slice borders they need.
         const string ButtonSprite = "Kenney_UIPack/Grey/button_rectangle_depth_flat.png";
@@ -47,7 +48,21 @@ namespace MathDungeon.EditorTools
         [MenuItem("Math Dungeon/Build All Menus", priority = 0)]
         public static void BuildAll()
         {
-            if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return;
+            // Saves any dirty scene that this build is NOT about to overwrite,
+            // rather than putting up a modal "save changes?" prompt. The prompt
+            // blocks the Editor's main thread until a human clicks it, which
+            // stalls any scripted or remote invocation of this menu item — and
+            // it protects nothing for MainMenu or PauseSandbox, since both get
+            // regenerated from scratch a few lines below.
+            for (int i = 0; i < EditorSceneManager.sceneCount; i++)
+            {
+                var open = EditorSceneManager.GetSceneAt(i);
+                if (!open.isDirty || string.IsNullOrEmpty(open.path)) continue;
+                if (open.path == MainMenuScenePath || open.path == SandboxScenePath) continue;
+
+                EditorSceneManager.SaveScene(open);
+                Debug.Log("[MathDungeon] Saved unrelated open scene before building: " + open.path);
+            }
 
             Directory.CreateDirectory(SceneDir);
             Directory.CreateDirectory(PrefabDir);
@@ -56,7 +71,8 @@ namespace MathDungeon.EditorTools
             SlateBackdropGenerator.Generate();
 
             BuildPauseMenuPrefab();
-            BuildMainMenuScene();
+            BuildSandboxScene();
+            BuildMainMenuScene();   // built last so it is the scene left open
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
@@ -477,6 +493,67 @@ namespace MathDungeon.EditorTools
             Directory.CreateDirectory(PrefabDir);
             PrefabUtility.SaveAsPrefabAsset(canvas.gameObject, PausePrefabPath);
             Object.DestroyImmediate(canvas.gameObject);
+        }
+
+        // ================================================================
+        //  SANDBOX
+        // ================================================================
+
+        /// <summary>
+        /// A throwaway scene whose only job is to make the pause menu testable
+        /// here. The prefab is built to be dropped into a gameplay scene, and
+        /// this project has none — so without this there is no way to press
+        /// Escape and see anything happen, which makes the prefab look broken.
+        ///
+        /// The cube spins on scaled time, so pausing visibly stops it while the
+        /// menu's own glow keeps breathing on unscaled time.
+        /// </summary>
+        static void BuildSandboxScene()
+        {
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+
+            var bodyFont = MenuBuildKit.EnsureFont("Kenney Mini Square");
+
+            var camGo = new GameObject("Main Camera", typeof(Camera), typeof(AudioListener));
+            var cam = camGo.GetComponent<Camera>();
+            cam.clearFlags = CameraClearFlags.SolidColor;
+            cam.backgroundColor = MenuBuildKit.StoneDeep;
+            cam.transform.position = new Vector3(0f, 0f, -6f);
+            camGo.tag = "MainCamera";
+
+            var light = new GameObject("Directional Light", typeof(Light));
+            light.GetComponent<Light>().type = LightType.Directional;
+            light.transform.rotation = Quaternion.Euler(50f, -30f, 0f);
+
+            var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            cube.name = "Spinning Cube";
+            cube.AddComponent<MathDungeon.Sandbox.SandboxSpinner>();
+
+            CreateEventSystem();
+
+            // On-screen instruction, so the scene explains itself.
+            var canvas = MenuBuildKit.NewCanvas("SandboxHint", 0);
+            var hint = MenuBuildKit.CarvedText("Hint", canvas.transform,
+                "SANDBOX  -  PRESS  ESCAPE  TO  PAUSE", bodyFont, 28f,
+                TMPro.TextAlignmentOptions.Center, glow: false, charSpacing: 10f,
+                faceColor: MenuBuildKit.TextMuted);
+            hint.anchorMin = new Vector2(0.5f, 0f);
+            hint.anchorMax = new Vector2(0.5f, 0f);
+            hint.pivot     = new Vector2(0.5f, 0f);
+            hint.sizeDelta = new Vector2(1200f, 60f);
+            hint.anchoredPosition = new Vector2(0f, 60f);
+
+            // Instantiated as a prefab INSTANCE, not a copy, so later edits to
+            // PauseMenu.prefab still flow into this scene.
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(PausePrefabPath);
+            if (prefab != null)
+                PrefabUtility.InstantiatePrefab(prefab);
+            else
+                Debug.LogError("[MathDungeon] Pause prefab missing at " + PausePrefabPath);
+
+            EditorSceneManager.MarkSceneDirty(scene);
+            EditorSceneManager.SaveScene(scene, SandboxScenePath);
+            AddSceneToBuildSettings(SandboxScenePath);
         }
 
         // ================================================================
