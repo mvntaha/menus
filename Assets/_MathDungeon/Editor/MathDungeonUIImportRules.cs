@@ -44,6 +44,12 @@ namespace MathDungeon.EditorTools
             settings.filterMode          = FilterMode.Bilinear;
             settings.readable            = false;
 
+            // Sprites are almost never power-of-two, and a fresh
+            // TextureImporterSettings defaults npotScale to ToNearest — which
+            // Unity then rejects for sprite textures, logging a warning per
+            // asset. Set it explicitly so ~1000 imports stay silent.
+            settings.npotScale           = TextureImporterNPOTScale.None;
+
             // FullRect is required for Image types Sliced / Tiled / Filled;
             // Tight would break every 9-sliced button and panel. Set it
             // explicitly rather than leaning on it being the enum's zero value.

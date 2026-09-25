@@ -55,15 +55,20 @@ scratch. That folder is gitignored and regenerable; never commit it.
 Menus/
 ├── Assets/
 │   ├── _MathDungeon/          ← EVERYTHING WE AUTHOR. This is the deliverable.
+│   │   ├── Scenes/            ← MainMenu.unity
+│   │   ├── Prefabs/           ← PauseMenu.prefab (drop into any gameplay scene)
+│   │   ├── Scripts/Runtime/   ← menu controllers, scene guard, glow, button SFX
 │   │   ├── Art/UI/            ← 999 sprites, 5 Kenney packs
 │   │   │   ├── Kenney_UIPack/           buttons, panels, sliders, checkboxes (6 colourways)
 │   │   │   ├── Kenney_UIPack_RPG/       hearts, mana, inventory slots, bars
 │   │   │   ├── Kenney_UIPack_Adventure/ chunkier fantasy-styled controls
 │   │   │   ├── Kenney_FantasyBorders/   ornate frames, dividers, panel borders
-│   │   │   └── Kenney_GameIcons/        210 icons, white + black, tint at runtime
+│   │   │   ├── Kenney_GameIcons/        210 icons, white + black, tint at runtime
+│   │   │   └── Generated/               slate_backdrop.png (built by script)
 │   │   ├── Audio/UI/          ← 6 click/tap/switch sounds
 │   │   ├── Fonts/Kenney/      ← 12 TTFs
-│   │   ├── Editor/            ← import rules (see below)
+│   │   ├── Fonts/Generated/   ← TMP font assets built from those TTFs
+│   │   ├── Editor/            ← import rules + the menu builders (see below)
 │   │   └── THIRD-PARTY.md     ← licences and sourcing decisions
 │   │
 │   ├── Scenes/                ┐
@@ -104,7 +109,7 @@ git checkout -b feature/math-dungeon-menus
 3. Grab `Delivery/MathDungeon.unitypackage` from this repo (clone it, or download
    the file from GitHub).
 4. In Techwiz: **Assets → Import Package → Custom Package…**, pick that file.
-5. The import dialog lists 1052 assets, all ticked. Leave them all ticked, hit
+5. The import dialog lists 1071 assets, all ticked. Leave them all ticked, hit
    **Import**. It lands at `Assets/_MathDungeon/` — the same path it has here.
 6. Wait for the import to finish (the progress bar runs for a minute or two —
    it's compiling ~1000 sprites).
@@ -162,6 +167,70 @@ before handing off again, or Techwiz gets stale art.
 In Unity: right-click `_MathDungeon` in the Project window → **Export Package…**
 → make sure *Include dependencies* is ticked → save to `Delivery/MathDungeon.unitypackage`
 → commit it.
+
+---
+
+## The menus
+
+Two screens, both in the **Etched Slate** style: a dark stone wall with
+arithmetic carved into it, lit by a slow teal pulse.
+
+### Main Menu — `Scenes/MainMenu.unity`
+
+Title, tagline, and a four-button column: **Play / Levels / Settings / Quit**,
+plus a settings panel with music and sound sliders. The backdrop is a generated
+1920×1080 slate texture with a baked vignette; the arithmetic runes scattered
+across the wall are TMP text objects you can edit, not part of the image.
+
+Quit hides itself automatically on WebGL, where `Application.Quit` does nothing.
+
+### Pause Menu — `Prefabs/PauseMenu.prefab`
+
+**Resume / Restart / Settings / Main Menu**, over a dimmed screen. To use it,
+drag the prefab into a gameplay scene. That's the whole setup — no wiring.
+
+- Toggles on **Escape**, under either input backend. Techwiz may be on the new
+  Input System, the legacy manager, or both, and calling the wrong API throws at
+  runtime, so the key read is compiled per backend rather than assumed.
+- Sets `Time.timeScale = 0` and pauses `AudioListener`. Menu click sounds still
+  play, because the prefab's AudioSource has *Ignore Listener Pause* on.
+- Canvas `sortingOrder` is 100, so it sits above any existing HUD.
+- Restores `timeScale` in `OnDisable` and before every scene load. A scene that
+  loads at `timeScale` 0 looks frozen and is a miserable bug to chase.
+- Warns in the Console if the scene has no EventSystem — without one the menu
+  appears but nothing is clickable, which otherwise reads as a broken prefab.
+
+### Pointing the buttons at real scenes
+
+The scene names are placeholders, because the real scenes live in Techwiz:
+
+| Component | Field | Default |
+|---|---|---|
+| `MainMenuController` on `MenuCanvas` | Gameplay Scene | `Gameplay` |
+| | Level Select Scene | `LevelSelect` |
+| `PauseMenuController` on the prefab | Main Menu Scene | `MainMenu` |
+
+Set these in the Inspector and add the scenes to Build Settings. If a scene is
+missing, the button logs exactly which name failed rather than throwing:
+
+```
+[MathDungeon] Scene 'Gameplay' is not in Build Settings, so it cannot be loaded.
+Add it under File > Build Profiles > Scene List, or correct the name on this component.
+```
+
+The sliders are **not** wired to an AudioMixer — Techwiz owns audio routing, so
+hook their `OnValueChanged` to your own mixer rather than to something invented
+here.
+
+### Regenerating
+
+Both screens are built by script: **Math Dungeon → Build All Menus**. This exists
+so a palette or copy change doesn't mean re-dragging forty references by hand,
+and so the two screens can't drift apart visually.
+
+The output is ordinary GameObjects — edit them in the Inspector like anything
+else. **Rebuilding overwrites both**, so commit before regenerating if you've
+made manual changes worth keeping.
 
 ---
 
@@ -259,8 +328,10 @@ the Sprite Editor. Check the Sprite Editor first — that's the usual cause.
 
 **TextMeshPro text renders as pink boxes.**
 TMP Essentials aren't imported in that project: **Window → TextMeshPro → Import
-TMP Essential Resources**. Note that this project doesn't ship TMP Essentials
-either — they're Unity's, not ours, and each project imports its own.
+TMP Essential Resources**. The menus use TMP throughout, so Techwiz needs this
+before they will render. TMP Essentials are Unity's, not ours, and live at
+`Assets/TextMesh Pro/` — they are deliberately *not* in the delivery package,
+because each project imports its own copy and shipping ours would collide.
 
 **Console spam: "Account API did not become accessible within 30 seconds."**
 Harmless. It's Unity's AI Assistant package failing to reach its service. It has
@@ -278,25 +349,22 @@ Don't hand-edit it. Set up UnityYAMLMerge (see Git notes) and re-run the merge.
 | ✅ | Project scaffolded, Unity version matched to Techwiz |
 | ✅ | 999 sprites, 12 fonts, 6 UI sounds imported and configured |
 | ✅ | Automatic UI import rules in place |
-| ✅ | `Delivery/MathDungeon.unitypackage` built and committed |
-| ⬜ | **Backdrop concept not yet chosen** — see below |
-| ⬜ | Main menu scene |
-| ⬜ | Settings / level select screens |
+| ✅ | Backdrop concept chosen: **C · Etched Slate**, carved |
+| ✅ | Main menu scene — title, 4 buttons, settings panel, rune field |
+| ✅ | Pause menu prefab — Escape toggle, 4 buttons, settings panel |
+| ✅ | `Delivery/MathDungeon.unitypackage` rebuilt (1071 assets, 4.7 MB) |
+| ⬜ | Sliders wired to an AudioMixer — belongs in Techwiz |
+| ⬜ | Level select screen |
 
-### Open decision
+### Known gaps
 
-Three backdrop concepts are on the table for the main menu:
+Worth stating plainly rather than letting them be discovered:
 
-- **A · Torchlit Stone** — tiled stone wall, two torch pools, heavy vignette.
-  Cheapest to build, but generic; nothing about it says *maths*.
-- **B · Descent Shaft** — looking down a shaft through four parallax arch layers.
-  Reinforces the idea of descending floors. Needs sorted layers and a parallax script.
-- **C · Etched Slate** — dark slate wall with arithmetic glyphs carved into it,
-  lit by a slow emissive pulse. The only one that states the genre on sight.
-
-**Recommendation: C.** For a school-facing project, a player understanding the
-premise in the first second beats atmosphere. B's parallax isn't exclusive with
-C and can be layered on later.
-
-C still needs one call: do the glyphs read as **carved runes** (mysterious,
-thematic) or **chalk working** (classroom, legible)?
+- **The settings sliders do nothing yet.** They move, and their values are not
+  connected to any audio. That's deliberate — see the note above.
+- **Settings are not persisted.** No `PlayerPrefs`, no save. Volume resets to
+  0.8 each run. Worth adding once the sliders drive something real.
+- **No level select scene.** The button exists and points at a `LevelSelect`
+  scene that has to be built.
+- **Rune text is hard-coded** in the builder's `Runes` array. Editing the scene
+  objects works, but a rebuild resets them.
